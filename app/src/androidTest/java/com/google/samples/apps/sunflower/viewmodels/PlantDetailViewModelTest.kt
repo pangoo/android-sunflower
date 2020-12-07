@@ -16,32 +16,52 @@
 
 package com.google.samples.apps.sunflower.viewmodels
 
-import android.arch.persistence.room.Room
-import android.support.test.InstrumentationRegistry
+import androidx.arch.core.executor.testing.InstantTaskExecutorRule
+import androidx.room.Room
+import androidx.test.platform.app.InstrumentationRegistry
 import com.google.samples.apps.sunflower.data.AppDatabase
 import com.google.samples.apps.sunflower.data.GardenPlantingRepository
 import com.google.samples.apps.sunflower.data.PlantRepository
 import com.google.samples.apps.sunflower.utilities.getValue
 import com.google.samples.apps.sunflower.utilities.testPlant
+import dagger.hilt.android.testing.HiltAndroidRule
+import dagger.hilt.android.testing.HiltAndroidTest
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.RuleChain
+import javax.inject.Inject
+import kotlin.jvm.Throws
 
+@HiltAndroidTest
 class PlantDetailViewModelTest {
 
     private lateinit var appDatabase: AppDatabase
     private lateinit var viewModel: PlantDetailViewModel
+    private val hiltRule = HiltAndroidRule(this)
+    private val instantTaskExecutorRule = InstantTaskExecutorRule()
+
+    @get:Rule
+    val rule = RuleChain
+            .outerRule(hiltRule)
+            .around(instantTaskExecutorRule)
+
+    @Inject
+    lateinit var plantRepository: PlantRepository
+
+    @Inject
+    lateinit var gardenPlantRepository: GardenPlantingRepository
 
     @Before
     fun setUp() {
-        val context = InstrumentationRegistry.getTargetContext()
+        hiltRule.inject()
+
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
         appDatabase = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).build()
 
-        val plantRepo = PlantRepository.getInstance(appDatabase.plantDao())
-        val gardenPlantingRepo = GardenPlantingRepository.getInstance(
-                appDatabase.gardenPlantingDao())
-        viewModel = PlantDetailViewModel(plantRepo, gardenPlantingRepo, testPlant.plantId)
+        viewModel = PlantDetailViewModel(plantRepository, gardenPlantRepository, testPlant.plantId)
     }
 
     @After

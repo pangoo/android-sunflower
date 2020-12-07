@@ -16,10 +16,13 @@
 
 package com.google.samples.apps.sunflower.viewmodels
 
-import android.arch.lifecycle.MediatorLiveData
-import android.arch.lifecycle.MutableLiveData
-import android.arch.lifecycle.Transformations
-import android.arch.lifecycle.ViewModel
+import androidx.hilt.Assisted
+import androidx.hilt.lifecycle.ViewModelInject
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.switchMap
 import com.google.samples.apps.sunflower.PlantListFragment
 import com.google.samples.apps.sunflower.data.Plant
 import com.google.samples.apps.sunflower.data.PlantRepository
@@ -27,37 +30,35 @@ import com.google.samples.apps.sunflower.data.PlantRepository
 /**
  * The ViewModel for [PlantListFragment].
  */
-class PlantListViewModel internal constructor(
-    private val plantRepository: PlantRepository
+class PlantListViewModel @ViewModelInject internal constructor(
+    plantRepository: PlantRepository,
+    @Assisted private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val NO_GROW_ZONE = -1
-    private val growZoneNumber = MutableLiveData<Int>()
-
-    private val plantList = MediatorLiveData<List<Plant>>()
-
-    init {
-        growZoneNumber.value = NO_GROW_ZONE
-
-        val livePlantList = Transformations.switchMap(growZoneNumber) {
-            if (it == NO_GROW_ZONE) {
-                plantRepository.getPlants()
-            } else {
-                plantRepository.getPlantsWithGrowZoneNumber(it)
-            }
+    val plants: LiveData<List<Plant>> = getSavedGrowZoneNumber().switchMap {
+        if (it == NO_GROW_ZONE) {
+            plantRepository.getPlants()
+        } else {
+            plantRepository.getPlantsWithGrowZoneNumber(it)
         }
-        plantList.addSource(livePlantList, plantList::setValue)
     }
 
-    fun getPlants() = plantList
-
     fun setGrowZoneNumber(num: Int) {
-        growZoneNumber.value = num
+        savedStateHandle.set(GROW_ZONE_SAVED_STATE_KEY, num)
     }
 
     fun clearGrowZoneNumber() {
-        growZoneNumber.value = NO_GROW_ZONE
+        savedStateHandle.set(GROW_ZONE_SAVED_STATE_KEY, NO_GROW_ZONE)
     }
 
-    fun isFiltered() = growZoneNumber.value != NO_GROW_ZONE
+    fun isFiltered() = getSavedGrowZoneNumber().value != NO_GROW_ZONE
+
+    private fun getSavedGrowZoneNumber(): MutableLiveData<Int> {
+        return savedStateHandle.getLiveData(GROW_ZONE_SAVED_STATE_KEY, NO_GROW_ZONE)
+    }
+
+    companion object {
+        private const val NO_GROW_ZONE = -1
+        private const val GROW_ZONE_SAVED_STATE_KEY = "GROW_ZONE_SAVED_STATE_KEY"
+    }
 }
